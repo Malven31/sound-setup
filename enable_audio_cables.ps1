@@ -44,13 +44,16 @@ function Get-ShortIdFromName {
 
 # -----
 
-$Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek High Definition Audio)'
-$VBAudioCables_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (VB-Audio Virtual Cable)' # => default playback
-$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (VB-Audio Cable A)'
-$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (VB-Audio Cable B)'
+# SORTIES
+$Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
+$VBAudioCables_PlaybackId = Get-ShortIdFromName -Name 'CABLE Input (VB-Audio Virtual Cable)' # => default playback
+$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Cable A)'
+$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Cable B)'
 $SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Definition Audio)'
 
-$StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek High Definition Audio)' # to SonyTV -> LISTEN
+# ENTREES
+# $StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek(R) Audio)' # to SonyTV -> LISTEN
+$StereoMixing_RecorderId = 'ab19b82f-ccb7-43d6-990d-d5f5ee1387d4' # to SonyTV -> LISTEN
 $VBAudioCables_RecorderId = Get-ShortIdFromName -Name 'CABLE Output (VB-Audio Virtual Cable)' # Realtek -> LISTEN
 $VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Cable A)' # VBAudioCables => default recording
 $VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Cable B)' # Realtek -> LISTEN
@@ -149,12 +152,50 @@ Function Get-CompleteId {
 }
 
 
+Function Test-RegistryValue {
+    param(
+        [Alias("PSPath")]
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        [String]$Path
+        ,
+        [Parameter(Position = 1, Mandatory = $true)]
+        [String]$Name
+        ,
+        [Switch]$PassThru
+    ) 
+
+    process {
+        if (Test-Path $Path) {
+            $Key = Get-Item -LiteralPath $Path
+            if ($Key.GetValue($Name, $null) -ne $null) {
+                if ($PassThru) {
+                    Get-ItemProperty $Path $Name
+                } else {
+                    $true
+                }
+            } else {
+                $false
+            }
+        } else {
+            $false
+        }
+    }
+}
 
 Function Set-RegistryAudioDeviceListen {
     param ([string]$DeviceType, [string]$DeviceId, [bool]$ListenEnabled, [string]$DeviceToListenId)
     $path = $RegistryPath + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties"
 
-    $getObjectListenEnabled = Get-ItemProperty -path $path -name $RegistryListenToEnabledProperty
+    $enabled = Test-RegistryValue $path $RegistryListenToEnabledProperty
+    if (-Not $enabled) {
+        New-ItemProperty -path $path -name $RegistryListenToEnabledProperty -PropertyType Binary -Value ([byte[]](0x0b,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
+    }
+    $target = Test-RegistryValue $path $RegistryListenToTargetProperty
+    if (-Not $target) {
+        New-ItemProperty -path $path -name $RegistryListenToTargetProperty -PropertyType String
+    }
+
+    $getObjectListenEnabled = Get-ItemProperty -path $path -name $RegistryListenToEnabledProperty 
     $getObjectListenTarget = Get-ItemProperty -path $path -name $RegistryListenToTargetProperty
 
     if ($ListenEnabled) {
@@ -226,4 +267,4 @@ Set-RegistryAudioDeviceListen `
     -DeviceToListenId $Realtek_PlaybackId
 
 
-Restart-Service -Name $audioServiceName
+Restart-Service -Name $audioServiceName -Force

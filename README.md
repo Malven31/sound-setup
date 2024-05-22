@@ -1,5 +1,13 @@
 # SOUNT SETUP
 
+## INSTALL
+
+- In a Powershell administrator shell, run :
+
+```powershell
+Install-Module -Name AudioDeviceCmdlets
+```
+
 ## HOW TO LAUNCH
 
 - Edit `enable_audio_cables.ps1` file, write the names of target Audio Devices.
