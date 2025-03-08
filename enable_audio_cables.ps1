@@ -37,8 +37,16 @@ function Get-ShortId {
 
 function Get-ShortIdFromName {
     param([string]$Name)
-    $id = Get-AudioDeviceIdFromName -Name $Name
-    return Get-ShortId -LongId $id
+    try {
+        $id = Get-AudioDeviceIdFromName -Name $Name
+        if (-not $id) {
+            throw "No ID found for the given name: $Name"
+        }
+        return Get-ShortId -LongId $id
+    } catch {
+        Write-Host "Error: $_"
+        return $null  # Return null in case of failure
+    }
 }
 
 
@@ -47,8 +55,8 @@ function Get-ShortIdFromName {
 # SORTIES
 $Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
 $VBAudioCables_PlaybackId = Get-ShortIdFromName -Name 'CABLE Input (VB-Audio Virtual Cable)' # => default playback
-$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Cable A)'
-$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Cable B)'
+$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Cable A)' # default all applications sound
+$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Cable B)' # discord sound
 $SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Definition Audio)'
 
 # ENTREES
@@ -143,6 +151,7 @@ function Enable-Privilege {
 
 Function Get-CompleteId {
     param ([string]$Id, [bool]$IsPlayback)
+    Write-Host " - Getting ID" -ForegroundColor Yellow
     if ($IsPlayback) {
         return '{0.0.0.00000000}.{' + $Id + '}'
     }
@@ -167,7 +176,7 @@ Function Test-RegistryValue {
     process {
         if (Test-Path $Path) {
             $Key = Get-Item -LiteralPath $Path
-            if ($Key.GetValue($Name, $null) -ne $null) {
+            if ($null -ne $Key.GetValue($Name, $null)) {
                 if ($PassThru) {
                     Get-ItemProperty $Path $Name
                 } else {
@@ -184,6 +193,14 @@ Function Test-RegistryValue {
 
 Function Set-RegistryAudioDeviceListen {
     param ([string]$DeviceType, [string]$DeviceId, [bool]$ListenEnabled, [string]$DeviceToListenId)
+    
+    # Early return if either device ID is null or empty
+    if (-not $DeviceId -or -not $DeviceToListenId) {
+        Write-Host "Error: Device ID or DeviceToListen ID is null/empty. Aborting..." -ForegroundColor Red
+        return
+    }
+    
+    Write-Host " - Setting Listen" -ForegroundColor Yellow
     $path = $RegistryPath + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties"
 
     $enabled = Test-RegistryValue $path $RegistryListenToEnabledProperty
@@ -266,5 +283,5 @@ Set-RegistryAudioDeviceListen `
     -ListenEnabled 1 `
     -DeviceToListenId $Realtek_PlaybackId
 
-
+Write-Host " - Restarting Windows Audio Service" -ForegroundColor Yellow
 Restart-Service -Name $audioServiceName -Force
