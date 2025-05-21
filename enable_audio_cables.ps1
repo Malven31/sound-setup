@@ -96,16 +96,16 @@ $SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Defini
 $StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek(R) Audio)' # to SonyTV -> LISTEN
 # $StereoMixing_RecorderId = 'ab19b82f-ccb7-43d6-990d-d5f5ee1387d4' # to SonyTV -> LISTEN
 $VBAudioCables_RecorderId = Get-ShortIdFromName -Name 'CABLE Output (VB-Audio Virtual Cable)' # Realtek -> LISTEN
-$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # VBAudioCables => default recording
+$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # VBAudioCables => default recording / Realtek -> LISTEN
 $VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Realtek -> LISTEN
-
+$Microphone_RecorderId = Get-ShortIdFromName -Name 'Microphone (RODE NT-USB)' # Mic
 
 # -----
 
 
 Function Get-CompleteId {
     param ([string]$Id, [bool]$IsPlayback)
-    Write-Host " - Getting ID" -ForegroundColor Yellow
+    # Write-Host " - Getting ID" -ForegroundColor Yellow
     if ($IsPlayback) {
         return '{0.0.0.00000000}.{' + $Id + '}'
     }
@@ -154,7 +154,7 @@ Function Set-RegistryAudioDeviceListen {
         return
     }
     
-    Write-Host " - Setting Listen" -ForegroundColor Yellow
+    Write-Host " - Setting Listen : `"$DeviceId`" to `"$DeviceToListenId`"" -ForegroundColor Yellow
     $path = $RegistryPath + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties"
 
     # Check if the registry path exists and create it if it doesn't
@@ -195,7 +195,7 @@ Function Set-RegistryAudioDeviceListen {
     $getObjectListenTarget.$RegistryListenToTargetProperty = Get-CompleteId -Id $DeviceToListenId -IsPlayback 1
     $targetValue = $getObjectListenTarget.$RegistryListenToTargetProperty
 
-    Enable-Privilege SeTakeOwnershipPrivilege 
+    Enable-Privilege SeTakeOwnershipPrivilege  | Out-Null
     $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
         $RegistryFolder + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties",
         [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [System.Security.AccessControl.RegistryRights]::takeownership
@@ -220,11 +220,17 @@ Function Set-RegistryAudioDeviceListen {
 
 
 $PlaybackDefaultId = Get-CompleteId -Id $VBAudioCables_PlaybackId -IsPlayback 1
-Set-AudioDevice -ID $PlaybackDefaultId
+Write-Host " - Setting default playback device" -ForegroundColor Yellow
+Set-AudioDevice -ID $PlaybackDefaultId | Out-Null
 
 $RecordDefaultId = Get-CompleteId -Id $VBAudioCables_A_RecorderId -IsPlayback 0
-Set-AudioDevice -ID $RecordDefaultId
+Write-Host " - Setting default recording device" -ForegroundColor Yellow
+Set-AudioDevice -ID $RecordDefaultId | Out-Null
 
+# Set RODE microphone as the default communication device for recording
+$MicrophoneCommunicationId = Get-CompleteId -Id $Microphone_RecorderId -IsPlayback 0
+Write-Host " - Setting RODE NT-USB as default communication device" -ForegroundColor Yellow
+Set-AudioDevice -ID $MicrophoneCommunicationId -Communication | Out-Null
 
 # Set-RegistryAudioDeviceListen `
 #     -DeviceType $Capture `
@@ -236,13 +242,13 @@ Set-RegistryAudioDeviceListen `
     -DeviceType $Capture `
     -DeviceId $VBAudioCables_RecorderId `
     -ListenEnabled 1 `
-    -DeviceToListenId $Realtek_PlaybackId
+    -DeviceToListenId $VBAudioCables_A_PlaybackId
 
 Set-RegistryAudioDeviceListen `
     -DeviceType $Capture `
     -DeviceId $VBAudioCables_A_RecorderId `
-    -ListenEnabled 0 `
-    -DeviceToListenId $VBAudioCables_PlaybackId
+    -ListenEnabled 1 `
+    -DeviceToListenId $Realtek_PlaybackId
 
 Set-RegistryAudioDeviceListen `
     -DeviceType $Capture `
