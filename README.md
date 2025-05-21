@@ -8,6 +8,14 @@
 Install-Module -Name AudioDeviceCmdlets
 ```
 
+## TIPS
+
+To get a list of all audio devices, run :
+
+```powershell
+Get-AudioDevice -List
+```
+
 ## HOW TO LAUNCH
 
 - Edit `enable_audio_cables.ps1` file, write the names of target Audio Devices.
@@ -18,7 +26,6 @@ Install-Module -Name AudioDeviceCmdlets
     1) Go to Sound -> settings -> Recorders and enable/disable all **Listen to this device** property (and apply each time).
     2) Reboot computer.
     3) Execute `enable_audio_cables.ps1` once more.
-
 
 ---
 

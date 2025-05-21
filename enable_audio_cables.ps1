@@ -55,16 +55,16 @@ function Get-ShortIdFromName {
 # SORTIES
 $Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
 $VBAudioCables_PlaybackId = Get-ShortIdFromName -Name 'CABLE Input (VB-Audio Virtual Cable)' # => default playback
-$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Cable A)' # default all applications sound
-$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Cable B)' # discord sound
+$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Virtual Cable A)' # default all applications sound
+$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Virtual Cable B)' # discord sound
 $SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Definition Audio)'
 
 # ENTREES
-# $StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek(R) Audio)' # to SonyTV -> LISTEN
-$StereoMixing_RecorderId = 'ab19b82f-ccb7-43d6-990d-d5f5ee1387d4' # to SonyTV -> LISTEN
+$StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo' # to SonyTV -> LISTEN
+# $StereoMixing_RecorderId = 'ab19b82f-ccb7-43d6-990d-d5f5ee1387d4' # to SonyTV -> LISTEN
 $VBAudioCables_RecorderId = Get-ShortIdFromName -Name 'CABLE Output (VB-Audio Virtual Cable)' # Realtek -> LISTEN
-$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Cable A)' # VBAudioCables => default recording
-$VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Cable B)' # Realtek -> LISTEN
+$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # VBAudioCables => default recording
+$VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Realtek -> LISTEN
 
 
 # -----
