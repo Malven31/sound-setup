@@ -3,7 +3,7 @@ $RegistryFolder = 'SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio'
 $RegistryPath = $RegistryBase + $RegistryFolder
 
 $Capture = 'Capture'
-$Render = 'Render'
+# $Render = 'Render'
 
 $audioServiceName = 'audiosrv'
 
@@ -14,17 +14,47 @@ $RegistryListenToEnabledProperty = '{' + $RegistryListenToPropertyId + '},1'
 
 $soundDevices = Get-AudioDevice -list
 
-$ascii = [System.Text.Encoding]::ASCII
+$utf8 = [System.Text.Encoding]::UTF8
+
+# Separate devices into playback and recording categories
+$playbackDevices = $soundDevices | Where-Object { $_.Type -eq 'Playback' }
+$recordingDevices = $soundDevices | Where-Object { $_.Type -eq 'Recording' }
+
+# Display playback devices
+Write-Host " - Available playback devices:" -ForegroundColor Yellow
+foreach ($device in $playbackDevices) {
+    Write-Host "     - $($device.Name)" -ForegroundColor Cyan
+}
+
+# Display recording devices
+Write-Host "`n - Available recording devices:" -ForegroundColor Yellow
+foreach ($device in $recordingDevices) {
+    Write-Host "     - $($device.Name)" -ForegroundColor Cyan
+}
+Write-Host "`n"
+
 
 function Get-AudioDeviceIdFromName {
     param([string]$Name)
-    $encodedName = $ascii.GetBytes($Name)
     foreach ($sound in $soundDevices) {
-        $encodedSoundName = [System.Text.Encoding]::UTF8.GetBytes($sound.Name)
-        if ($ascii.GetString($encodedSoundName) -eq $ascii.GetString($encodedName)) {
+        # Simple direct string comparison - case insensitive
+        if ($sound.Name -like $Name) {
             return $sound.Id
         }
     }
+    
+    # Enhanced comparison using normalization for accented characters
+    foreach ($sound in $soundDevices) {
+        # Using string normalization to handle accented characters
+        $normalizedName = $Name.Normalize([Text.NormalizationForm]::FormD) -replace '[^\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nd}\p{Pc}\p{Lm}]', ''
+        $normalizedDeviceName = $sound.Name.Normalize([Text.NormalizationForm]::FormD) -replace '[^\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nd}\p{Pc}\p{Lm}]', ''
+        
+        if ($normalizedDeviceName -like "*$normalizedName*" -or $normalizedName -like "*$normalizedDeviceName*") {
+            Write-Host "Found match using normalized comparison: $($sound.Name)" -ForegroundColor Green
+            return $sound.Id
+        }
+    }
+    
     $AudioDeviceError = New-Object System.Exception "There is no Sound Device named : $Name"
     throw $AudioDeviceError
 }
@@ -60,7 +90,7 @@ $VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio
 $SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Definition Audio)'
 
 # ENTREES
-$StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo' # to SonyTV -> LISTEN
+$StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek(R) Audio)' # to SonyTV -> LISTEN
 # $StereoMixing_RecorderId = 'ab19b82f-ccb7-43d6-990d-d5f5ee1387d4' # to SonyTV -> LISTEN
 $VBAudioCables_RecorderId = Get-ShortIdFromName -Name 'CABLE Output (VB-Audio Virtual Cable)' # Realtek -> LISTEN
 $VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # VBAudioCables => default recording
@@ -203,12 +233,25 @@ Function Set-RegistryAudioDeviceListen {
     Write-Host " - Setting Listen" -ForegroundColor Yellow
     $path = $RegistryPath + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties"
 
+    # Check if the registry path exists and create it if it doesn't
+    if (-Not (Test-Path $path)) {
+        Write-Host " - Creating registry path: $path" -ForegroundColor Yellow
+        try {
+            New-Item -Path $path -Force | Out-Null
+        } catch {
+            Write-Host "Error creating registry path: $_" -ForegroundColor Red
+            return
+        }
+    }
+
     $enabled = Test-RegistryValue $path $RegistryListenToEnabledProperty
     if (-Not $enabled) {
+        Write-Host " - Creating registry value: $RegistryListenToEnabledProperty" -ForegroundColor Yellow
         New-ItemProperty -path $path -name $RegistryListenToEnabledProperty -PropertyType Binary -Value ([byte[]](0x0b,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
     }
     $target = Test-RegistryValue $path $RegistryListenToTargetProperty
     if (-Not $target) {
+        Write-Host " - Creating registry value: $RegistryListenToTargetProperty" -ForegroundColor Yellow
         New-ItemProperty -path $path -name $RegistryListenToTargetProperty -PropertyType String
     }
 
@@ -259,11 +302,11 @@ $RecordDefaultId = Get-CompleteId -Id $VBAudioCables_A_RecorderId -IsPlayback 0
 Set-AudioDevice -ID $RecordDefaultId
 
 
-Set-RegistryAudioDeviceListen `
-    -DeviceType $Capture `
-    -DeviceId $StereoMixing_RecorderId `
-    -ListenEnabled 1 `
-    -DeviceToListenId $SonyTV_PlaybackId
+# Set-RegistryAudioDeviceListen `
+#     -DeviceType $Capture `
+#     -DeviceId $StereoMixing_RecorderId `
+#     -ListenEnabled 1 `
+#     -DeviceToListenId $SonyTV_PlaybackId
 
 Set-RegistryAudioDeviceListen `
     -DeviceType $Capture `
