@@ -1,23 +1,16 @@
-$RegistryBase = 'HKLM:\'
-$RegistryFolder = 'SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio'
-$RegistryPath = $RegistryBase + $RegistryFolder
-
 $Capture = 'Capture'
 # $Render = 'Render'
 
 $audioServiceName = 'audiosrv'
-
-$RegistryListenToPropertyId = '24dbb0fc-9311-4b3d-9cf0-18ff155639d4'
-$RegistryListenToTargetProperty = '{' + $RegistryListenToPropertyId + '},0'
-$RegistryListenToEnabledProperty = '{' + $RegistryListenToPropertyId + '},1'
 
 
 $soundDevices = Get-AudioDevice -list
 
 # Source the privileges script to get the Enable-Privilege function
 . "$PSScriptRoot\privileges.ps1"
+# Source the utilities script to get the all functions
+. "$PSScriptRoot\utilities.ps1"
 
-$utf8 = [System.Text.Encoding]::UTF8
 
 # Separate devices into playback and recording categories
 $playbackDevices = $soundDevices | Where-Object { $_.Type -eq 'Playback' }
@@ -37,210 +30,37 @@ foreach ($device in $recordingDevices) {
 Write-Host "`n"
 
 
-function Remove-Diacritics {
-    param([string]$Text)
-    if (-not $Text) { return $Text }
-    $normalized = $Text.Normalize([Text.NormalizationForm]::FormD)
-    return -join ($normalized.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' })
-}
-
-function Invoke-EncodingBug {
-    param([string]$Text)
-    if (-not $Text) { return $Text }
-    $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($Text)
-    return [System.Text.Encoding]::UTF8.GetString($bytes)
-}
-
-function Get-AudioDeviceIdFromName {
-    param([string]$Name)
-    $normalizedInput = Remove-Diacritics $Name
-    $buggyInput = Invoke-EncodingBug $Name
-    foreach ($sound in $soundDevices) {
-        $normalizedDeviceName = Remove-Diacritics $sound.Name
-        if ($normalizedDeviceName -eq $normalizedInput) {
-            return $sound.Id
-        }
-        # Also try contains for partial matches
-        if ($normalizedDeviceName -like "*$normalizedInput*" -or $normalizedInput -like "*$normalizedDeviceName*") {
-            Write-Host "Found match using normalized/diacritics-insensitive comparison: $($sound.Name)" -ForegroundColor Green
-            return $sound.Id
-        }
-        # Try buggy encoding match
-        if ($sound.Name -eq $buggyInput) {
-            Write-Host "Found match using simulated encoding bug: $($sound.Name) == $buggyInput" -ForegroundColor Magenta
-            return $sound.Id
-        }
-        if ($sound.Name -like "*$buggyInput*") {
-            Write-Host "Found partial match using simulated encoding bug: $($sound.Name) ~ $buggyInput" -ForegroundColor Magenta
-            return $sound.Id
-        }
-    }
-    $AudioDeviceError = New-Object System.Exception "There is no Sound Device named : $Name"
-    throw $AudioDeviceError
-}
-
-function Get-ShortId {
-    param([string]$LongId)
-    $pattern = '(?<=\}\.\{).+?(?=\})'
-    [regex]::Matches($longId, $pattern).Value
-}
-
-function Get-ShortIdFromName {
-    param([string]$Name)
-    try {
-        $id = Get-AudioDeviceIdFromName -Name $Name
-        if (-not $id) {
-            throw "No ID found for the given name: $Name"
-        }
-        return Get-ShortId -LongId $id
-    } catch {
-        Write-Host "Error: $_"
-        return $null  # Return null in case of failure
-    }
-}
-
-
 # -----
 
-# SORTIES
+# SORTIES (PLAYBACK DEVICES)
 $Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
-$VBAudioCables_PlaybackId = Get-ShortIdFromName -Name 'CABLE Input (VB-Audio Virtual Cable)' # => default playback
-$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Virtual Cable A)' # default all applications sound
-$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Virtual Cable B)' # discord sound
-$SonyTV_PlaybackId = Get-ShortIdFromName -Name 'SONY TV  *00 (NVIDIA High Definition Audio)'
+$LogitechHeadset_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Logitech PRO X Gaming Headset)'
+$VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Virtual Cable A)' # => default all applications sound
+$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Virtual Cable B)' # => discord sound (set in Discord settings)
 
-# ENTREES
-$StereoMixing_RecorderId = Get-ShortIdFromName -Name 'Mixage stéréo (Realtek(R) Audio)' # to SonyTV -> LISTEN
-$VBAudioCables_RecorderId = Get-ShortIdFromName -Name 'CABLE Output (VB-Audio Virtual Cable)' # Realtek -> LISTEN
-$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # VBAudioCables => default recording / Realtek -> LISTEN
-$VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Realtek -> LISTEN
+# ENTREES (RECORDING DEVICES)
+# Note: CABLE-A Output and CABLE-B Output are connected to Voicemeeter as hardware inputs
+# Voicemeeter handles the mixing and routing to physical outputs (Logitech, Realtek)
+$VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # Computer sounds for recording
+$VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Discord for recording
+$VoicemeeterOut_B1_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)' # Recording Track 1 (Computer)
+$VoicemeeterOut_B2_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B3 (VB-Audio Voicemeeter VAIO)' # Recording Track 2 (Discord)
 $Microphone_RecorderId = Get-ShortIdFromName -Name 'Microphone (RODE NT-USB)' # Mic
 
 # -----
 
 
-Function Get-CompleteId {
-    param ([string]$Id, [bool]$IsPlayback)
-    # Write-Host " - Getting ID" -ForegroundColor Yellow
-    if ($IsPlayback) {
-        return '{0.0.0.00000000}.{' + $Id + '}'
-    }
-    else {
-        return '{0.0.1.00000000}.{' + $Id + '}'
-    }
-}
 
-
-Function Test-RegistryValue {
-    param(
-        [Alias("PSPath")]
-        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
-        [String]$Path
-        ,
-        [Parameter(Position = 1, Mandatory = $true)]
-        [String]$Name
-        ,
-        [Switch]$PassThru
-    ) 
-
-    process {
-        if (Test-Path $Path) {
-            $Key = Get-Item -LiteralPath $Path
-            if ($null -ne $Key.GetValue($Name, $null)) {
-                if ($PassThru) {
-                    Get-ItemProperty $Path $Name
-                } else {
-                    $true
-                }
-            } else {
-                $false
-            }
-        } else {
-            $false
-        }
-    }
-}
-
-Function Set-RegistryAudioDeviceListen {
-    param ([string]$DeviceType, [string]$DeviceId, [bool]$ListenEnabled, [string]$DeviceToListenId)
-    
-    # Early return if either device ID is null or empty
-    if (-not $DeviceId -or -not $DeviceToListenId) {
-        Write-Host "Error: Device ID or DeviceToListen ID is null/empty. Aborting..." -ForegroundColor Red
-        return
-    }
-    
-    Write-Host " - Setting Listen : `"$DeviceId`" to `"$DeviceToListenId`"" -ForegroundColor Yellow
-    $path = $RegistryPath + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties"
-
-    # Check if the registry path exists and create it if it doesn't
-    if (-Not (Test-Path $path)) {
-        Write-Host " - Creating registry path: $path" -ForegroundColor Yellow
-        try {
-            New-Item -Path $path -Force | Out-Null
-        } catch {
-            Write-Host "Error creating registry path: $_" -ForegroundColor Red
-            return
-        }
-    }
-
-    $enabled = Test-RegistryValue $path $RegistryListenToEnabledProperty
-    if (-Not $enabled) {
-        Write-Host " - Creating registry value: $RegistryListenToEnabledProperty" -ForegroundColor Yellow
-        New-ItemProperty -path $path -name $RegistryListenToEnabledProperty -PropertyType Binary -Value ([byte[]](0x0b,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00))
-    }
-    $target = Test-RegistryValue $path $RegistryListenToTargetProperty
-    if (-Not $target) {
-        Write-Host " - Creating registry value: $RegistryListenToTargetProperty" -ForegroundColor Yellow
-        New-ItemProperty -path $path -name $RegistryListenToTargetProperty -PropertyType String
-    }
-
-    $getObjectListenEnabled = Get-ItemProperty -path $path -name $RegistryListenToEnabledProperty 
-    $getObjectListenTarget = Get-ItemProperty -path $path -name $RegistryListenToTargetProperty
-
-    if ($ListenEnabled) {
-        $getObjectListenEnabled.$RegistryListenToEnabledProperty[8] = 255
-        $getObjectListenEnabled.$RegistryListenToEnabledProperty[9] = 255
-    }
-    else {
-        $getObjectListenEnabled.$RegistryListenToEnabledProperty[8] = 0
-        $getObjectListenEnabled.$RegistryListenToEnabledProperty[9] = 0
-    }
-
-    $enabledValue = $getObjectListenEnabled.$RegistryListenToEnabledProperty
-    $getObjectListenTarget.$RegistryListenToTargetProperty = Get-CompleteId -Id $DeviceToListenId -IsPlayback 1
-    $targetValue = $getObjectListenTarget.$RegistryListenToTargetProperty
-
-    Enable-Privilege SeTakeOwnershipPrivilege  | Out-Null
-    $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
-        $RegistryFolder + "\" + $DeviceType + "\{" + $DeviceId + "}\Properties",
-        [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [System.Security.AccessControl.RegistryRights]::takeownership
-    )
-    # You must get a blank acl for the key b/c you do not currently have access
-    $acl = $key.GetAccessControl([System.Security.AccessControl.AccessControlSections]::None)
-    $me = [System.Security.Principal.NTAccount]"$env:userdomain\$env:username"
-    $acl.SetOwner($me)
-    $key.SetAccessControl($acl)
-    
-    # After you have set owner you need to get the acl with the perms so you can modify it.
-    $acl = $key.GetAccessControl()
-    $rule = New-Object System.Security.AccessControl.RegistryAccessRule ("$env:userdomain\$env:username", "FullControl", "Allow")
-    $acl.SetAccessRule($rule)
-    $key.SetAccessControl($acl)
-    
-    $key.Close()
-
-    Set-ItemProperty -path $path -name $RegistryListenToEnabledProperty -Value $enabledValue -Force
-    Set-ItemProperty -path $path -name $RegistryListenToTargetProperty -Value $targetValue -Force
-}
-
-
-$PlaybackDefaultId = Get-CompleteId -Id $VBAudioCables_PlaybackId -IsPlayback 1
-Write-Host " - Setting default playback device" -ForegroundColor Yellow
+$PlaybackDefaultId = Get-CompleteId -Id $VBAudioCables_A_PlaybackId -IsPlayback 1
+Write-Host " - Setting CABLE-A as default playback device (for computer sounds)" -ForegroundColor Yellow
 Set-AudioDevice -ID $PlaybackDefaultId | Out-Null
 
+# Note: Set Discord output to CABLE-B manually in Discord settings
+Write-Host " - Remember: Set Discord output to 'CABLE-B Input' in Discord Voice settings" -ForegroundColor Cyan
+
+# Set default recording device (optional - for applications that need to record)
 $RecordDefaultId = Get-CompleteId -Id $VBAudioCables_A_RecorderId -IsPlayback 0
-Write-Host " - Setting default recording device" -ForegroundColor Yellow
+Write-Host " - Setting CABLE-A Output as default recording device" -ForegroundColor Yellow
 Set-AudioDevice -ID $RecordDefaultId | Out-Null
 
 # Set RODE microphone as the default communication device for recording
@@ -248,29 +68,11 @@ $MicrophoneCommunicationId = Get-CompleteId -Id $Microphone_RecorderId -IsPlayba
 Write-Host " - Setting RODE NT-USB as default communication device" -ForegroundColor Yellow
 Set-AudioDevice -ID $MicrophoneCommunicationId -Communication | Out-Null
 
-Set-RegistryAudioDeviceListen `
-    -DeviceType $Capture `
-    -DeviceId $StereoMixing_RecorderId `
-    -ListenEnabled 1 `
-    -DeviceToListenId $SonyTV_PlaybackId
-
-Set-RegistryAudioDeviceListen `
-    -DeviceType $Capture `
-    -DeviceId $VBAudioCables_RecorderId `
-    -ListenEnabled 1 `
-    -DeviceToListenId $VBAudioCables_A_PlaybackId
-
-Set-RegistryAudioDeviceListen `
-    -DeviceType $Capture `
-    -DeviceId $VBAudioCables_A_RecorderId `
-    -ListenEnabled 1 `
-    -DeviceToListenId $Realtek_PlaybackId
-
-Set-RegistryAudioDeviceListen `
-    -DeviceType $Capture `
-    -DeviceId $VBAudioCables_B_RecorderId `
-    -ListenEnabled 1 `
-    -DeviceToListenId $Realtek_PlaybackId
-
-Write-Host " - Restarting Windows Audio Service" -ForegroundColor Yellow
-Restart-Service -Name $audioServiceName -Force
+Write-Host "`n - Setup complete!" -ForegroundColor Green
+Write-Host "   Your audio flow:" -ForegroundColor White
+Write-Host "   1. Computer sounds → CABLE-A → Voicemeeter → Logitech + Realtek" -ForegroundColor Gray
+Write-Host "   2. Discord (set manually) → CABLE-B → Voicemeeter → Logitech + Realtek" -ForegroundColor Gray
+Write-Host "   3. In Voicemeeter: Enable A1, A2, B2 for Stereo Input 1 (CABLE-A)" -ForegroundColor Gray
+Write-Host "   4. In Voicemeeter: Enable A1, A2, B3 for Stereo Input 2 (CABLE-B)" -ForegroundColor Gray
+Write-Host "   5. For OBS: Use 'Voicemeeter Out B2' and 'Voicemeeter Out B3' as separate audio sources" -ForegroundColor Gray
+Write-Host "`n"
