@@ -1,4 +1,4 @@
-$Capture = 'Capture'
+# $Capture = 'Capture'
 # $Render = 'Render'
 
 $audioServiceName = 'audiosrv'
@@ -33,19 +33,19 @@ Write-Host "`n"
 # -----
 
 # SORTIES (PLAYBACK DEVICES)
-$Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
-$LogitechHeadset_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Logitech PRO X Gaming Headset)'
+# $Realtek_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Realtek(R) Audio)'
+# $LogitechHeadset_PlaybackId = Get-ShortIdFromName -Name 'Haut-parleurs (Logitech PRO X Gaming Headset)'
 $VBAudioCables_A_PlaybackId = Get-ShortIdFromName -Name 'CABLE-A Input (VB-Audio Virtual Cable A)' # => default all applications sound
-$VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Virtual Cable B)' # => discord sound (set in Discord settings)
+# $VBAudioCables_B_PlaybackId = Get-ShortIdFromName -Name 'CABLE-B Input (VB-Audio Virtual Cable B)' # => discord sound (set in Discord settings)
 
 # ENTREES (RECORDING DEVICES)
 # Note: CABLE-A Output and CABLE-B Output are connected to Voicemeeter as hardware inputs
 # Voicemeeter handles the mixing and routing to physical outputs (Logitech, Realtek)
 $VBAudioCables_A_RecorderId = Get-ShortIdFromName -Name 'CABLE-A Output (VB-Audio Virtual Cable A)' # Computer sounds for recording
-$VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Discord for recording
-$VoicemeeterOut_B1_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)' # Recording Track 1 (Computer)
-$VoicemeeterOut_B2_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B3 (VB-Audio Voicemeeter VAIO)' # Recording Track 2 (Discord)
-$Microphone_RecorderId = Get-ShortIdFromName -Name 'Microphone (RODE NT-USB)' # Mic
+# $VBAudioCables_B_RecorderId = Get-ShortIdFromName -Name 'CABLE-B Output (VB-Audio Virtual Cable B)' # Discord for recording
+$VoicemeeterOut_B1_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)' # Recording Track 1 (Microphone)
+# $VoicemeeterOut_B2_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)' # Recording Track 2 (Computer)
+# $VoicemeeterOut_B3_RecorderId = Get-ShortIdFromName -Name 'Voicemeeter Out B3 (VB-Audio Voicemeeter VAIO)' # Recording Track 3 (Discord)
 
 # -----
 
@@ -63,16 +63,50 @@ $RecordDefaultId = Get-CompleteId -Id $VBAudioCables_A_RecorderId -IsPlayback 0
 Write-Host " - Setting CABLE-A Output as default recording device" -ForegroundColor Yellow
 Set-AudioDevice -ID $RecordDefaultId | Out-Null
 
-# Set RODE microphone as the default communication device for recording
-$MicrophoneCommunicationId = Get-CompleteId -Id $Microphone_RecorderId -IsPlayback 0
-Write-Host " - Setting RODE NT-USB as default communication device" -ForegroundColor Yellow
+# Set Voicemeeter Out B1 as the default communication device (microphone through Voicemeeter)
+$MicrophoneCommunicationId = Get-CompleteId -Id $VoicemeeterOut_B1_RecorderId -IsPlayback 0
+Write-Host " - Setting Voicemeeter Out B1 as default communication device (for Discord/Teams/etc)" -ForegroundColor Yellow
 Set-AudioDevice -ID $MicrophoneCommunicationId -Communication | Out-Null
+
+# Disable unused audio devices to reduce clutter
+Write-Host "`n"
+$devicesToKeep = @(
+    # Playback devices (outputs) to keep enabled
+    'Haut-parleurs (Realtek(R) Audio)',
+    'Haut-parleurs (Logitech PRO X Gaming Headset)',
+    'CABLE-A Input (VB-Audio Virtual Cable A)',
+    'CABLE-B Input (VB-Audio Virtual Cable B)',
+    
+    # Recording devices (inputs) to keep enabled
+    'CABLE-A Output (VB-Audio Virtual Cable A)',
+    'CABLE-B Output (VB-Audio Virtual Cable B)',
+    'Microphone (RODE NT-USB)',
+    'Microphone (Logitech PRO X Gaming Headset)',
+    'Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)',  # Mic recording
+    'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)',  # Computer recording
+    'Voicemeeter Out B3 (VB-Audio Voicemeeter VAIO)'   # Discord recording
+)
+
+Disable-UnusedAudioDevices -DeviceNamesToKeepEnabled $devicesToKeep
+
+Write-Host " - Restarting Windows Audio Service to apply changes..." -ForegroundColor Yellow
+try {
+    Restart-Service -Name $audioServiceName -Force -ErrorAction Stop
+    Write-Host "   [OK] Audio service restarted successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host "   [ERROR] Could not restart audio service (requires administrator privileges)" -ForegroundColor Red
+    Write-Host "   -> Please run this script as Administrator, or restart manually:" -ForegroundColor Yellow
+    Write-Host "     1. Open Services (services.msc)" -ForegroundColor Gray
+    Write-Host "     2. Find Windows Audio service" -ForegroundColor Gray
+    Write-Host "     3. Right-click -> Restart" -ForegroundColor Gray
+}
 
 Write-Host "`n - Setup complete!" -ForegroundColor Green
 Write-Host "   Your audio flow:" -ForegroundColor White
-Write-Host "   1. Computer sounds → CABLE-A → Voicemeeter → Logitech + Realtek" -ForegroundColor Gray
-Write-Host "   2. Discord (set manually) → CABLE-B → Voicemeeter → Logitech + Realtek" -ForegroundColor Gray
+Write-Host "   1. Computer sounds -> CABLE-A -> Voicemeeter -> Logitech + Realtek" -ForegroundColor Gray
+Write-Host "   2. Discord (set manually) -> CABLE-B -> Voicemeeter -> Logitech + Realtek" -ForegroundColor Gray
 Write-Host "   3. In Voicemeeter: Enable A1, A2, B2 for Stereo Input 1 (CABLE-A)" -ForegroundColor Gray
 Write-Host "   4. In Voicemeeter: Enable A1, A2, B3 for Stereo Input 2 (CABLE-B)" -ForegroundColor Gray
-Write-Host "   5. For OBS: Use 'Voicemeeter Out B2' and 'Voicemeeter Out B3' as separate audio sources" -ForegroundColor Gray
-Write-Host "`n"
+Write-Host "   5. For OBS: Use Voicemeeter Out B1, B2, B3 as separate audio tracks" -ForegroundColor Gray
+Write-Host ""

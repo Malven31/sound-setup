@@ -197,3 +197,32 @@ Function Set-RegistryAudioDeviceListen {
     Set-ItemProperty -path $path -name $RegistryListenToTargetProperty -Value $targetValue -Force
 }
 
+Function Disable-UnusedAudioDevices {
+    param ([string[]]$DeviceNamesToKeepEnabled)
+    
+    Write-Host " - Hiding unused audio devices from list..." -ForegroundColor Yellow
+    
+    $allDevices = Get-AudioDevice -List
+    $devicesToHide = $allDevices | Where-Object { 
+        $_.Name -notin $DeviceNamesToKeepEnabled 
+    }
+    
+    if ($devicesToHide.Count -eq 0) {
+        Write-Host "   - All devices are in the keep-enabled list" -ForegroundColor Gray
+        return
+    }
+    
+    Write-Host "   - Found $($devicesToHide.Count) devices that are not in your active setup" -ForegroundColor Gray
+    Write-Host "   - Note: These devices cannot be disabled via PowerShell, but you can:" -ForegroundColor Cyan
+    Write-Host "     1. Right-click speaker icon → Sound settings → More sound settings" -ForegroundColor DarkGray
+    Write-Host "     2. Right-click each unused device → Disable" -ForegroundColor DarkGray
+    Write-Host "`n   - Unused devices:" -ForegroundColor Yellow
+    
+    foreach ($device in $devicesToHide) {
+        Write-Host "     - $($device.Name)" -ForegroundColor DarkGray
+    }
+    
+    Write-Host ""
+}
+
+
