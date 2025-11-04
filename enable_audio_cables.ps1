@@ -76,10 +76,14 @@ $devicesToKeep = @(
     'Haut-parleurs (Logitech PRO X Gaming Headset)',
     'CABLE-A Input (VB-Audio Virtual Cable A)',
     'CABLE-B Input (VB-Audio Virtual Cable B)',
+    'CABLE-C Input (VB-Audio Cable C)',
+    'CABLE-D Input (VB-Audio Cable D)',
     
     # Recording devices (inputs) to keep enabled
     'CABLE-A Output (VB-Audio Virtual Cable A)',
     'CABLE-B Output (VB-Audio Virtual Cable B)',
+    'CABLE-C Output (VB-Audio Cable C)',
+    'CABLE-D Output (VB-Audio Cable D)',
     'Microphone (RODE NT-USB)',
     'Microphone (Logitech PRO X Gaming Headset)',
     'Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)',  # Mic recording
