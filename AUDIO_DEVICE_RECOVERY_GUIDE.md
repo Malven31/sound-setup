@@ -24,7 +24,7 @@ When installing VB-Audio Cable C+D (or any additional audio drivers), Windows ma
 2. **Fix Playback Devices:**
    - Go to **"Playback"** tab
    - Find devices with wrong names (e.g., "CABLE-C Input (Logitech...)")
-   - Right-click → **"Properties"**
+   - Right-click -> **"Properties"**
    - In the **"General"** tab, edit the device name field
    - Rename to the correct name from the list below
    - Click **OK** and **Apply**
@@ -34,9 +34,9 @@ When installing VB-Audio Cable C+D (or any additional audio drivers), Windows ma
    - Repeat the same process for any wrongly named recording devices
 
 4. **Restart Audio Service:**
-   - Open **Services** (Win+R → `services.msc`)
+   - Open **Services** (Win+R -> `services.msc`)
    - Find **"Windows Audio"**
-   - Right-click → **Restart**
+   - Right-click -> **Restart**
 
 ---
 

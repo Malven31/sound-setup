@@ -214,8 +214,8 @@ Function Disable-UnusedAudioDevices {
     
     Write-Host "   - Found $($devicesToHide.Count) devices that are not in your active setup" -ForegroundColor Gray
     Write-Host "   - Note: These devices cannot be disabled via PowerShell, but you can:" -ForegroundColor Cyan
-    Write-Host "     1. Right-click speaker icon → Sound settings → More sound settings" -ForegroundColor DarkGray
-    Write-Host "     2. Right-click each unused device → Disable" -ForegroundColor DarkGray
+    Write-Host "     1. Right-click speaker icon -> Sound settings -> More sound settings" -ForegroundColor DarkGray
+    Write-Host "     2. Right-click each unused device -> Disable" -ForegroundColor DarkGray
     Write-Host "`n   - Unused devices:" -ForegroundColor Yellow
     
     foreach ($device in $devicesToHide) {
